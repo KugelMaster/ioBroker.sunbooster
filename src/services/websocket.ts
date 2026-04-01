@@ -8,6 +8,11 @@ const BROKER_URL = "wss://iot-south.acceleronix.io:8443/ws/v2";
 const SUB_TOPICS = [`q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`, `q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/ack_`];
 const PUB_TOPIC = `q/1/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`;
 
+/**
+ * Stateful service for communicating with the sunbooster server via the MQTT protocol.
+ *
+ * @see {@link WebSocketService#connect} for the connection of the WebSocket.
+ */
 class WebSocketService {
     private client?: mqtt.MqttClient;
     private reconnectTimeout?: NodeJS.Timeout;
@@ -23,6 +28,11 @@ class WebSocketService {
 
     public connected: boolean = false;
 
+    /**
+     * Connects to the server via the MQTT protocol.
+     *
+     * @param accessToken - The JWT access token used for authentication
+     */
     connect(accessToken: string): void {
         const options = {
             clientId: this.clientId,
@@ -49,27 +59,6 @@ class WebSocketService {
                 console.error("Subscription error:", err);
             } else {
                 this.connected = true;
-                this.sendNextRequest();
-            }
-        });
-    }
-
-    public async sendAndReceive(message: Buffer): Promise<string> {
-        return new Promise<string>((resolve, reject) => {
-            const id = crypto.randomUUID();
-            // Setze einen Timeout, um die Anfrage aus der Warteschlange zu entfernen, falls keine Antwort kommt
-            const timeout = setTimeout(() => {
-                const index = this.requestQueue.findIndex(req => req.id === id);
-                if (index !== -1) {
-                    this.requestQueue.splice(index, 1);
-                }
-                reject(new Error("Timeout waiting for response"));
-            }, 10000);
-
-            this.requestQueue.push({ id, message, resolve, reject, timeout });
-
-            // Wenn dies die einzige Anfrage ist, sende sie
-            if (this.requestQueue.length === 1) {
                 this.sendNextRequest();
             }
         });
@@ -129,6 +118,32 @@ class WebSocketService {
         }
         this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
         */
+    }
+
+    /**
+     * Send a message to the predefined topic. This method queues requests and processes them first-come-first-served.
+     *
+     * @param message - The message to send to the topic
+     */
+    public async sendAndReceive(message: Buffer): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const id = crypto.randomUUID();
+            // Setze einen Timeout, um die Anfrage aus der Warteschlange zu entfernen, falls keine Antwort kommt
+            const timeout = setTimeout(() => {
+                const index = this.requestQueue.findIndex(req => req.id === id);
+                if (index !== -1) {
+                    this.requestQueue.splice(index, 1);
+                }
+                reject(new Error("Timeout waiting for response"));
+            }, 10000);
+
+            this.requestQueue.push({ id, message, resolve, reject, timeout });
+
+            // Wenn dies die einzige Anfrage ist, sende sie
+            if (this.requestQueue.length === 1) {
+                this.sendNextRequest();
+            }
+        });
     }
 }
 

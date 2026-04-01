@@ -2,9 +2,22 @@ import type { Logger, Tokens, TokenStorage } from "../types";
 import type ApiService from "./api";
 import type WebSocketService from "./websocket";
 
+/**
+ * Client for interacting with the Sunbooster API and WebSocket services.
+ * Handles token management, authentication and session persistence.
+ */
 class SunboosterClient {
     private tokens: Tokens | null = null;
 
+    /**
+     * Creates an instance of SunboosterClient.
+     *
+     * @param api - Service for API HTTP requests.
+     * @param ws - Service for WebSocket connections.
+     * @param storage - Service to load and save tokens.
+     * @param config - The ioBroker adapter configuration containing credentials.
+     * @param logger - The logger instance for debugging and error tracing.
+     */
     constructor(
         private api: ApiService,
         private ws: WebSocketService,
@@ -13,6 +26,10 @@ class SunboosterClient {
         private logger: Logger,
     ) {}
 
+    /**
+     * Initializes the SunboosterClient.
+     * Loads the tokens from the file and checks if the access token is valid.
+     */
     async init(): Promise<void> {
         await this.loadTokens();
         await this.ensureValidAccessToken();
@@ -33,8 +50,12 @@ class SunboosterClient {
 
     private async saveTokens(): Promise<void> {
         try {
-            await this.storage.saveTokens(this.tokens);
-            this.logger.debug("Saved tokens");
+            if (this.tokens) {
+                await this.storage.saveTokens(this.tokens);
+                this.logger.debug("Saved tokens");
+            } else {
+                this.logger.warn("No tokens to store");
+            }
         } catch {
             this.logger.error("Error during saving of tokens");
         }

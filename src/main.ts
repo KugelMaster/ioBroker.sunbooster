@@ -2,7 +2,7 @@ import * as utils from "@iobroker/adapter-core";
 import SunboosterClient from "./services/client";
 import ApiService from "./services/api";
 import WebSocketService from "./services/websocket";
-import IOBrokerTokenStorage from "./utils/token-storage";
+import IOBrokerTokenStorage from "./services/token-storage";
 import type { Logger } from "./types";
 
 class Sunbooster extends utils.Adapter {
