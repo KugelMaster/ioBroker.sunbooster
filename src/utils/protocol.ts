@@ -1,11 +1,4 @@
-const OutputLevel = [0, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800] as const;
-
-enum ChargeLevel {
-    OFF = 0,
-    NORMAL = 1,
-    FAST = 2,
-    SLOW = 3,
-}
+import { type ChargeLevel, OutputLevel } from "../types";
 
 class ProtocolParser {
     static parse(base: string, payload: string): Buffer {

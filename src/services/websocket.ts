@@ -1,6 +1,5 @@
-import mqtt from "mqtt";
-import ProtocolParser from "./protocol";
 import crypto from "crypto";
+import mqtt from "mqtt";
 
 const PRODUCT_KEY = "XXXXXX";
 const DEVICE_KEY = "XXXXXXXXXXXX";
@@ -21,19 +20,14 @@ class WebSocketService {
     }> = [];
 
     private clientId: string = `qu_E19725_${Math.floor(Date.now() / 1000)}`;
-    private accessToken: string;
 
     public connected: boolean = false;
 
-    constructor(accessToken: string) {
-        this.accessToken = accessToken;
-    }
-
-    connect(): void {
+    connect(accessToken: string): void {
         const options = {
             clientId: this.clientId,
             username: "",
-            password: this.accessToken,
+            password: accessToken,
             clean: true,
             connectTimeout: 4000,
             reconnectPeriod: 5000,
@@ -128,18 +122,14 @@ class WebSocketService {
     private scheduleReconnect(): void {
         this.connected = false;
         console.log("Connection lost. Reconnecting in 5 seconds...");
-        return;
 
+        /*
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
         }
         this.reconnectTimeout = setTimeout(() => this.connect(), 5000);
+        */
     }
 }
 
-const wsService = new WebSocketService(
-    "Bearer eyJhbGciOiJSUzI1NiJ9...",
-);
-wsService.connect();
-wsService.sendAndReceive(ProtocolParser.getOutputCommand(200)).then(console.log).catch(console.error);
-wsService.sendAndReceive(ProtocolParser.getOutputCommand(250)).then(console.log).catch(console.error);
+export default WebSocketService;

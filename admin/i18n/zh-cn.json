@@ -1,5 +1,9 @@
 {
-    "sunbooster adapter settings": "sunbooster的适配器设置",
+    "How long the WebSocket waits between reconnects": "WebSocket 在重新连接之间等待多长时间",
+    "How often the WebSocket tries to reconnect if an error occured": "发生错误时 WebSocket 尝试重新连接的频率",
+    "Max Retries": "最大重试次数",
+    "Retry Interval": "重试间隔",
     "option1": "选项1",
-    "option2": "选项2"
+    "option2": "选项2",
+    "sunbooster adapter settings": "sunbooster的适配器设置"
 }

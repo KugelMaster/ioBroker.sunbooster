@@ -1,0 +1,121 @@
+import crypto from "crypto";
+import type { Tokens } from "../types";
+
+class ApiService {
+    private getRandomBelow(max: number): number {
+        return crypto.getRandomValues(new Uint32Array(1))[0] % max;
+    }
+
+    private getRandom(): string {
+        let result = "";
+
+        for (let i = 0; i < 16; i++) {
+            const choice = this.getRandomBelow(3);
+
+            if (choice === 0) {
+                result += this.getRandomBelow(10).toString();
+            } else if (choice === 1) {
+                result += String.fromCharCode(this.getRandomBelow(25) + 65);
+            } else {
+                result += String.fromCharCode(this.getRandomBelow(25) + 97);
+            }
+        }
+
+        return result;
+    }
+
+    private aesEncryptBase64(passwordPlain: string, random: string): string {
+        const md5Full = crypto.createHash("md5").update(random, "utf-8").digest("hex").toUpperCase();
+        const md5Hash = md5Full.substring(8, 24);
+
+        const keyBytes = Buffer.from(md5Hash, "utf-8");
+        const ivBytes = Buffer.from(md5Hash.substring(8, 16) + md5Hash.substring(0, 8), "utf-8");
+
+        const cipher = crypto.createCipheriv("aes-128-cbc", keyBytes, ivBytes);
+
+        let encrypted = cipher.update(passwordPlain, "utf-8", "base64");
+        encrypted += cipher.final("base64");
+
+        return encrypted;
+    }
+
+    public async login(email: string, password: string): Promise<Tokens> {
+        const URL = "https://iot-api.acceleronix.io/v2/enduser/enduserapi/emailPwdLogin";
+
+        const DOMAIN_SECRET = "8px7ztwB8Khi3iax97VVhufBCSv6QT4oCimou1Dyrkkv";
+        const userDomain = "E.DM.1209906967672817.3";
+
+        const random = this.getRandom();
+        const pwd = this.aesEncryptBase64(password, random);
+        const signature = crypto.hash("sha256", `${email}${pwd}${random}${DOMAIN_SECRET}`).toString();
+
+        const response = await fetch(URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                random,
+                signature,
+                userDomain,
+                pwd,
+                email,
+            }),
+        });
+        const data = (await response.json()) as any;
+
+        if (!data.data) {
+            throw new Error("Login failed: Invalid email or password");
+        }
+
+        return {
+            accessToken: data.data.accessToken.token,
+            accessTokenExpire: data.data.accessToken.expirationTime,
+            refreshToken: data.data.refreshToken.token,
+            refreshTokenExpire: data.data.refreshToken.expirationTime,
+        };
+    }
+
+    public async refreshAccessToken(refreshToken: string): Promise<Tokens> {
+        const URL = "https://iot-api.acceleronix.io/v2/enduser/enduserapi/refreshToken";
+
+        const response = await fetch(URL, {
+            method: "PUT",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ refreshToken }),
+        });
+        const data = (await response.json()) as any;
+
+        if (!data.data || data.code === 5032) {
+            throw new Error("Refresh token expired or invalid");
+        }
+
+        return {
+            accessToken: data.data.accessToken.token,
+            accessTokenExpire: data.data.accessToken.expirationTime,
+            refreshToken: data.data.refreshToken.token,
+            refreshTokenExpire: data.data.refreshToken.expirationTime,
+        };
+    }
+
+    public async getDeviceAttributes(accessToken: string, deviceKey: string, productKey: string): Promise<any> {
+        const URL = `https://iot-api.acceleronix.io/v2/binding/enduserapi/getDeviceBusinessAttributes?dk=${deviceKey}&pk=${productKey}`;
+
+        const response = await fetch(URL, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                authorization: accessToken,
+            },
+        });
+        const data = (await response.json()) as any;
+
+        if (!data.data || data.code === 5032) {
+            throw new Error("Failed to fetch device attributes");
+        }
+
+        const infos = data.data.customizeTslInfo;
+
+        return Object.fromEntries(infos.map((info: any) => [info.resourceCode, info.resourceValce]));
+    }
+}
+
+export default ApiService;

@@ -1,26 +1,65 @@
 {
     "i18n": true,
-    "type": "panel",
+    "type": "tabs",
     "items": {
-        "option1": {
-            "type": "checkbox",
-            "label": "option1",
-            "newLine": true,
-            "xs": 12,
-            "sm": 12,
-            "md": 6,
-            "lg": 4,
-            "xl": 4
+        "_device_and_credentials": {
+            "type": "panel",
+            "label": "Device and Credentials",
+            "items": {
+                "email": {
+                    "type": "text",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Account Email",
+                    "help": "The email of your Sunbooster Account"
+                },
+                "password": {
+                    "type": "password",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Account Password",
+                    "help": "The password of your Sunbooster Account"
+                },
+                "deviceKey": {
+                    "newLine": true,
+                    "type": "text",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Device Key"
+                },
+                "productKey": {
+                    "type": "text",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Product Key"
+                }
+            }
         },
-        "option2": {
-            "type": "text",
-            "label": "option2",
-            "newLine": true,
-            "xs": 12,
-            "sm": 12,
-            "md": 6,
-            "lg": 4,
-            "xl": 4
+        "_options": {
+            "type": "panel",
+            "label": "Options",
+            "items": {
+                "maxRetries": {
+                    "type": "number",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Max Retries",
+                    "help": "How often the WebSocket tries to reconnect if an error occured"
+                },
+                "retryInterval": {
+                    "type": "number",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Retry Interval",
+                    "help": "How long the WebSocket waits between reconnects"
+                }
+            }
         }
     }
 }

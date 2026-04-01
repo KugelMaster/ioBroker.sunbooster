@@ -1,5 +1,9 @@
 {
-    "sunbooster adapter settings": "Ustawienia adaptera dla sunbooster",
+    "How long the WebSocket waits between reconnects": "Czas oczekiwania protokołu WebSocket między ponownymi połączeniami",
+    "How often the WebSocket tries to reconnect if an error occured": "Jak często WebSocket próbuje ponownie nawiązać połączenie, jeśli wystąpił błąd",
+    "Max Retries": "Maksymalna liczba ponownych prób",
+    "Retry Interval": "Interwał ponawiania prób",
     "option1": "opcja 1",
-    "option2": "opcja 2"
+    "option2": "opcja 2",
+    "sunbooster adapter settings": "Ustawienia adaptera dla sunbooster"
 }
