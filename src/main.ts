@@ -1,13 +1,4 @@
-/*
- * Created with @iobroker/create-adapter v3.1.2
- */
-
-// The adapter-core module gives you access to the core ioBroker functions
-// you need to create an adapter
 import * as utils from "@iobroker/adapter-core";
-
-// Load your modules here, e.g.:
-// import * as fs from "fs";
 
 class Sunbooster extends utils.Adapter {
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
@@ -26,12 +17,15 @@ class Sunbooster extends utils.Adapter {
      * Is called when databases are connected and adapter received configuration.
      */
     private async onReady(): Promise<void> {
+        this.log.debug("Adapter is ready. Starting initialization...");
         // Initialize your adapter here
+
+        //this.setState("info.connection", true, true).then(console.log).catch(console.error);
 
         // The adapters config (in the instance object everything under the attribute "native") is accessible via
         // this.config:
-        this.log.debug("config option1: ${this.config.option1}");
-        this.log.debug("config option2: ${this.config.option2}");
+        this.log.debug(`config option1: ${this.config.option1}`);
+        this.log.debug(`config option2: ${this.config.option2}`);
 
         /*
         For every state in the system there has to be also an object of type state
