@@ -44,6 +44,11 @@ class WebSocketService {
   requestQueue = [];
   clientId = `qu_E19725_${Math.floor(Date.now() / 1e3)}`;
   connected = false;
+  /**
+   * Connects to the server via the MQTT protocol.
+   *
+   * @param accessToken - The JWT access token used for authentication
+   */
   connect(accessToken) {
     const options = {
       clientId: this.clientId,
@@ -67,22 +72,6 @@ class WebSocketService {
         console.error("Subscription error:", err);
       } else {
         this.connected = true;
-        this.sendNextRequest();
-      }
-    });
-  }
-  async sendAndReceive(message) {
-    return new Promise((resolve, reject) => {
-      const id = import_crypto.default.randomUUID();
-      const timeout = setTimeout(() => {
-        const index = this.requestQueue.findIndex((req) => req.id === id);
-        if (index !== -1) {
-          this.requestQueue.splice(index, 1);
-        }
-        reject(new Error("Timeout waiting for response"));
-      }, 1e4);
-      this.requestQueue.push({ id, message, resolve, reject, timeout });
-      if (this.requestQueue.length === 1) {
         this.sendNextRequest();
       }
     });
@@ -127,6 +116,27 @@ class WebSocketService {
   scheduleReconnect() {
     this.connected = false;
     console.log("Connection lost. Reconnecting in 5 seconds...");
+  }
+  /**
+   * Send a message to the predefined topic. This method queues requests and processes them first-come-first-served.
+   *
+   * @param message - The message to send to the topic
+   */
+  async sendAndReceive(message) {
+    return new Promise((resolve, reject) => {
+      const id = import_crypto.default.randomUUID();
+      const timeout = setTimeout(() => {
+        const index = this.requestQueue.findIndex((req) => req.id === id);
+        if (index !== -1) {
+          this.requestQueue.splice(index, 1);
+        }
+        reject(new Error("Timeout waiting for response"));
+      }, 1e4);
+      this.requestQueue.push({ id, message, resolve, reject, timeout });
+      if (this.requestQueue.length === 1) {
+        this.sendNextRequest();
+      }
+    });
   }
 }
 var websocket_default = WebSocketService;

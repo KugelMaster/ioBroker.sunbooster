@@ -3,10 +3,14 @@ import SunboosterClient from "./services/client";
 import ApiService from "./services/api";
 import WebSocketService from "./services/websocket";
 import IOBrokerTokenStorage from "./services/token-storage";
-import type { Logger } from "./types";
+import type { DeviceState, Logger } from "./types";
+import { stateDefinitions } from "./states";
 
 class Sunbooster extends utils.Adapter {
     private client?: SunboosterClient;
+    private pollInterval?: ioBroker.Interval;
+
+    private logger?: Logger;
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({
@@ -19,7 +23,7 @@ class Sunbooster extends utils.Adapter {
     }
 
     private async onReady(): Promise<void> {
-        const logger: Logger = {
+        this.logger = {
             silly: this.log.silly,
             debug: this.log.debug,
             info: this.log.info,
@@ -32,12 +36,24 @@ class Sunbooster extends utils.Adapter {
             new WebSocketService(),
             new IOBrokerTokenStorage(this),
             this.config,
-            logger,
+            this.logger,
         );
 
-        await this.client.init();
+        const success = await this.client.init();
 
-        this.log.info("Adapter is ready.");
+        if (!success) {
+            this.log.error("Sunbooster adapter initialisation stopped because of an error.");
+            return;
+        }
+
+        for (const [id, obj] of Object.entries(stateDefinitions)) {
+            await this.setObjectNotExistsAsync(id, obj);
+        }
+
+        this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), 60_000);
+        await this.pollDeviceInfos();
+
+        this.log.info("Sunbooster adapter is ready.");
     }
 
     private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
@@ -59,10 +75,33 @@ class Sunbooster extends utils.Adapter {
 
     private onUnload(callback: () => void): void {
         try {
+            if (this.pollInterval) {
+                this.clearInterval(this.pollInterval);
+            }
             callback();
         } catch (error) {
             this.log.error(`Error during unloading: ${(error as Error).message}`);
             callback();
+        }
+    }
+
+    private async pollDeviceInfos(): Promise<void> {
+        try {
+            const data = await this.client?.getDeviceInfo();
+            await this.updateStates(data);
+        } catch (err) {
+            this.log.error(`Error during fetch: ${(err as Error).message}`);
+        }
+        this.log.info("Polled info!");
+    }
+
+    private async updateStates(data: DeviceState | null | undefined): Promise<void> {
+        if (!data) {
+            return;
+        }
+
+        for (const [key, value] of Object.entries(data)) {
+            await this.setState(key, { val: value, ack: true });
         }
     }
 }

@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../src/utils/token-storage.ts"],
-  "sourcesContent": ["import type { Tokens, TokenStorage } from \"../types\";\r\n\r\nclass IOBrokerTokenStorage implements TokenStorage {\r\n    constructor(private adapter: ioBroker.Adapter) {}\r\n\r\n    async loadTokens(): Promise<Tokens | null> {\r\n        try {\r\n            const result = await this.adapter.readFileAsync(this.adapter.namespace, \"tokens.json\");\r\n\r\n            if (!result?.file) {\r\n                return null;\r\n            }\r\n\r\n            return JSON.parse(result.file.toString()) as Tokens;\r\n        } catch {\r\n            return null;\r\n        }\r\n    }\r\n\r\n    async saveTokens(tokens: Tokens | null): Promise<void> {\r\n        if (tokens === null) {\r\n            return;\r\n        }\r\n\r\n        await this.adapter.writeFileAsync(this.adapter.namespace, \"tokens.json\", JSON.stringify(tokens, null, 2));\r\n    }\r\n}\r\n\r\nexport default IOBrokerTokenStorage;\r\n"],
-  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAEA,MAAM,qBAA6C;AAAA,EAC/C,YAAoB,SAA2B;AAA3B;AAAA,EAA4B;AAAA,EAEhD,MAAM,aAAqC;AACvC,QAAI;AACA,YAAM,SAAS,MAAM,KAAK,QAAQ,cAAc,KAAK,QAAQ,WAAW,aAAa;AAErF,UAAI,EAAC,iCAAQ,OAAM;AACf,eAAO;AAAA,MACX;AAEA,aAAO,KAAK,MAAM,OAAO,KAAK,SAAS,CAAC;AAAA,IAC5C,QAAQ;AACJ,aAAO;AAAA,IACX;AAAA,EACJ;AAAA,EAEA,MAAM,WAAW,QAAsC;AACnD,QAAI,WAAW,MAAM;AACjB;AAAA,IACJ;AAEA,UAAM,KAAK,QAAQ,eAAe,KAAK,QAAQ,WAAW,eAAe,KAAK,UAAU,QAAQ,MAAM,CAAC,CAAC;AAAA,EAC5G;AACJ;AAEA,IAAO,wBAAQ;",
-  "names": []
-}

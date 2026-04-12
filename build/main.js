@@ -25,9 +25,12 @@ var utils = __toESM(require("@iobroker/adapter-core"));
 var import_client = __toESM(require("./services/client"));
 var import_api = __toESM(require("./services/api"));
 var import_websocket = __toESM(require("./services/websocket"));
-var import_token_storage = __toESM(require("./utils/token-storage"));
+var import_token_storage = __toESM(require("./services/token-storage"));
+var import_states = require("./states");
 class Sunbooster extends utils.Adapter {
   client;
+  pollInterval;
+  logger;
   constructor(options = {}) {
     super({
       ...options,
@@ -38,7 +41,7 @@ class Sunbooster extends utils.Adapter {
     this.on("unload", this.onUnload.bind(this));
   }
   async onReady() {
-    const logger = {
+    this.logger = {
       silly: this.log.silly,
       debug: this.log.debug,
       info: this.log.info,
@@ -50,10 +53,19 @@ class Sunbooster extends utils.Adapter {
       new import_websocket.default(),
       new import_token_storage.default(this),
       this.config,
-      logger
+      this.logger
     );
-    await this.client.init();
-    this.log.info("Adapter is ready.");
+    const success = await this.client.init();
+    if (!success) {
+      this.log.error("Sunbooster adapter initialisation stopped because of an error.");
+      return;
+    }
+    for (const [id, obj] of Object.entries(import_states.stateDefinitions)) {
+      await this.setObjectNotExistsAsync(id, obj);
+    }
+    this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), 6e4);
+    await this.pollDeviceInfos();
+    this.log.info("Sunbooster adapter is ready.");
   }
   onStateChange(id, state) {
     if (state) {
@@ -67,10 +79,31 @@ class Sunbooster extends utils.Adapter {
   }
   onUnload(callback) {
     try {
+      if (this.pollInterval) {
+        this.clearInterval(this.pollInterval);
+      }
       callback();
     } catch (error) {
       this.log.error(`Error during unloading: ${error.message}`);
       callback();
+    }
+  }
+  async pollDeviceInfos() {
+    var _a;
+    try {
+      const data = await ((_a = this.client) == null ? void 0 : _a.getDeviceInfo());
+      await this.updateStates(data);
+    } catch (err) {
+      this.log.error(`Error during fetch: ${err.message}`);
+    }
+    this.log.info("Polled info!");
+  }
+  async updateStates(data) {
+    if (!data) {
+      return;
+    }
+    for (const [key, value] of Object.entries(data)) {
+      await this.setState(key, { val: value, ack: true });
     }
   }
 }

@@ -22,9 +22,19 @@ __export(token_storage_exports, {
 });
 module.exports = __toCommonJS(token_storage_exports);
 class IOBrokerTokenStorage {
+  /**
+   * Creates an instance of IOBrokerTokenStorage
+   *
+   * @param adapter - The ioBroker Adapter instance (needed because of its file operation methods)
+   */
   constructor(adapter) {
     this.adapter = adapter;
   }
+  /**
+   * Load the JWT tokens from the "tokens.json" file in the instance's file system.
+   *
+   * @returns Tokens, if the file was found and not empty
+   */
   async loadTokens() {
     try {
       const result = await this.adapter.readFileAsync(this.adapter.namespace, "tokens.json");
@@ -36,10 +46,12 @@ class IOBrokerTokenStorage {
       return null;
     }
   }
+  /**
+   * Save the JWT tokens to "tokens.json" in the instance's file system.
+   *
+   * @param tokens - The JWT Tokens
+   */
   async saveTokens(tokens) {
-    if (tokens === null) {
-      return;
-    }
     await this.adapter.writeFileAsync(this.adapter.namespace, "tokens.json", JSON.stringify(tokens, null, 2));
   }
 }

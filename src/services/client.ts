@@ -1,4 +1,5 @@
-import type { Logger, Tokens, TokenStorage } from "../types";
+import type { DeviceState, Logger, Tokens, TokenStorage } from "../types";
+import { deviceStateTypeMap, typeParsers } from "../utils/parsers";
 import type ApiService from "./api";
 import type WebSocketService from "./websocket";
 
@@ -29,10 +30,14 @@ class SunboosterClient {
     /**
      * Initializes the SunboosterClient.
      * Loads the tokens from the file and checks if the access token is valid.
+     *
+     * @returns if loading the tokens was successful.
      */
-    async init(): Promise<void> {
+    async init(): Promise<boolean> {
         await this.loadTokens();
         await this.ensureValidAccessToken();
+
+        return this.tokens !== null;
     }
 
     private async loadTokens(): Promise<void> {
@@ -97,8 +102,45 @@ class SunboosterClient {
             this.logger.debug("Refreshed access token");
             await this.saveTokens();
         } catch {
-            this.logger.error("Error during refresh of access token");
+            this.logger.warn("Error during refresh of access token");
+            await this.fetchNewTokensWithCredentials();
         }
+    }
+
+    /**
+     * Fetches the current device state.
+     */
+    public async getDeviceInfo(): Promise<DeviceState | null> {
+        if (!this.tokens) {
+            this.logger.error("No tokens found!");
+            return null;
+        }
+
+        const raw = await this.api.getDeviceInfo(
+            this.tokens.accessToken,
+            this.config.deviceKey,
+            this.config.productKey,
+        );
+
+        const result: Partial<DeviceState> = {};
+
+        for (const key in deviceStateTypeMap) {
+            const parserType = deviceStateTypeMap[key as keyof DeviceState];
+            const parser = typeParsers[parserType];
+
+            const value = raw[key];
+            if (value === undefined) {
+                continue;
+            }
+
+            try {
+                (result as any)[key] = parser(value);
+            } catch {
+                this.logger.error("Error during parsing of values returned by the server");
+            }
+        }
+
+        return result as DeviceState;
     }
 }
 

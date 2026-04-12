@@ -136,12 +136,12 @@ class ApiService {
         const data = (await response.json()) as any;
 
         if (!data.data || data.code === 5032) {
-            throw new Error("Failed to fetch device attributes");
+            throw new Error(`Failed to fetch device attributes:\n${JSON.stringify(data)}`);
         }
 
         const infos = data.data.customizeTslInfo;
 
-        return Object.fromEntries(infos.map((info: any) => [info.resourceCode, info.resourceValce]));
+        return Object.fromEntries(infos.map((info: any) => [info.resourceCode.toUpperCase(), info.resourceValce]));
     }
 }
 

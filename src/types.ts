@@ -2,40 +2,13 @@
  * Minimal logging interface used by the Sunbooster adapter.
  */
 export interface Logger {
-    /**
-     * Trace-level log entry for very verbose debug info.
-     *
-     * @param msg Message text
-     */
+    /* eslint-disable jsdoc/require-jsdoc */
     silly(msg: string): void;
-
-    /**
-     * Debug-level log entry.
-     *
-     * @param msg Message text
-     */
     debug(msg: string): void;
-
-    /**
-     * Info-level log entry.
-     *
-     * @param msg Message text
-     */
     info(msg: string): void;
-
-    /**
-     * Warning-level log entry.
-     *
-     * @param msg Message text
-     */
     warn(msg: string): void;
-
-    /**
-     * Error-level log entry.
-     *
-     * @param msg Message text
-     */
     error(msg: string): void;
+    /* eslint-enable jsdoc/require-jsdoc */
 }
 
 /**
@@ -59,18 +32,10 @@ export interface Tokens {
  * Persistent storage abstraction for tokens.
  */
 export interface TokenStorage {
-    /**
-     * Load saved tokens from storage.
-     *
-     * @returns tokens or null when not found
-     */
+    // eslint-disable-next-line jsdoc/require-jsdoc
     loadTokens(): Promise<Tokens | null>;
 
-    /**
-     * Save tokens to storage.
-     *
-     * @param tokens tokens to store
-     */
+    // eslint-disable-next-line jsdoc/require-jsdoc
     saveTokens(tokens: Tokens): Promise<void>;
 }
 
@@ -83,15 +48,55 @@ export const OutputLevel = [0, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550,
  * Charging power profiles.
  */
 export enum ChargeLevel {
-    /** Charging is disabled */
     OFF = 0,
-
-    /** Normal charger power mode */
     NORMAL = 1,
-
-    /** Fast charging mode */
     FAST = 2,
-
-    /** Slow charging mode */
     SLOW = 3,
 }
+
+/**
+ * All device states from "Sunbooster POWERSTATION GRID+".
+ */
+export interface DeviceState {
+    /* eslint-disable jsdoc/require-jsdoc */
+    readonly BREATHING_LAMP_SWITCH_SET: boolean;
+    readonly DC_OUTPUT_POWER: number;
+    readonly DC_STANDBY_TIME: number;
+    readonly DC_SWITCH_HM: boolean;
+    readonly TEMP: number;
+    readonly MIG_TIME_SWITCH: boolean;
+    readonly MIG_CONNECTION_DATA_HM: number;
+    readonly TOTAL_OUTPUT_POWER: number;
+    readonly DEVICE_SOFT_VER: string;
+    readonly CHARGING_PACK_DATA_JDB: number;
+    readonly HIGH_FREQUENCY_REPORTING: number;
+    readonly USB_SWITCH: boolean;
+    readonly USB_OUTPUT_POWER_HM: number;
+    readonly REMAIN_CHARGING_TIME: number;
+    readonly CURRENCY_UNIT_SET: number;
+    readonly LED_STATUS_HM: number;
+    readonly MEASURE_DATA: object;
+    readonly TIMED_CHARGE_CONNECTION: object;
+    readonly REMAIN_TIME: number;
+    readonly CHARGE_MODE_DATA_HM: number;
+    readonly DEVICE_STANDBY_TIME: number;
+    readonly DEVICETIME: string;
+    readonly BATTERY_PERCENTAGE: number;
+    readonly ECO_MODE_SET: object;
+    readonly SOC_MIG_SWITCH: boolean;
+    readonly DEVICE_ELECTRICITY_USAGE: number;
+    readonly DEVICE_STATUS: number;
+    readonly DC_SOLAR_CURRENT_INPUT: number;
+    readonly SMART_ON_GRID_SWITCH: boolean;
+    readonly SCREEN_BRIGHTNESS: number;
+    readonly TIMED_GRID_CONNECTION: object;
+    readonly CHARGE_MODE_POWER_HM: number;
+    readonly AC_SWITCH_HM: boolean;
+    readonly AUTO_MIG_SET: object;
+    readonly FIT_ELECTRICITY_PRICE_SET: number;
+    readonly AC_OUTPUT_POWER: number;
+    readonly DC_SOLAR_INPUT: number;
+    readonly AC_TIME_SWITCH: boolean;
+    readonly TOTAL_INPUT_POWER: number;
+}
+/* eslint-enable jsdoc/require-jsdoc */

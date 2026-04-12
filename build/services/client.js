@@ -21,7 +21,17 @@ __export(client_exports, {
   default: () => client_default
 });
 module.exports = __toCommonJS(client_exports);
+var import_parsers = require("../utils/parsers");
 class SunboosterClient {
+  /**
+   * Creates an instance of SunboosterClient.
+   *
+   * @param api - Service for API HTTP requests.
+   * @param ws - Service for WebSocket connections.
+   * @param storage - Service to load and save tokens.
+   * @param config - The ioBroker adapter configuration containing credentials.
+   * @param logger - The logger instance for debugging and error tracing.
+   */
   constructor(api, ws, storage, config, logger) {
     this.api = api;
     this.ws = ws;
@@ -30,9 +40,16 @@ class SunboosterClient {
     this.logger = logger;
   }
   tokens = null;
+  /**
+   * Initializes the SunboosterClient.
+   * Loads the tokens from the file and checks if the access token is valid.
+   *
+   * @returns if loading the tokens was successful.
+   */
   async init() {
     await this.loadTokens();
     await this.ensureValidAccessToken();
+    return this.tokens !== null;
   }
   async loadTokens() {
     try {
@@ -48,8 +65,12 @@ class SunboosterClient {
   }
   async saveTokens() {
     try {
-      await this.storage.saveTokens(this.tokens);
-      this.logger.debug("Saved tokens");
+      if (this.tokens) {
+        await this.storage.saveTokens(this.tokens);
+        this.logger.debug("Saved tokens");
+      } else {
+        this.logger.warn("No tokens to store");
+      }
     } catch {
       this.logger.error("Error during saving of tokens");
     }
@@ -85,8 +106,38 @@ class SunboosterClient {
       this.logger.debug("Refreshed access token");
       await this.saveTokens();
     } catch {
-      this.logger.error("Error during refresh of access token");
+      this.logger.warn("Error during refresh of access token");
+      await this.fetchNewTokensWithCredentials();
     }
+  }
+  /**
+   * Fetches the current device state.
+   */
+  async getDeviceInfo() {
+    if (!this.tokens) {
+      this.logger.error("No tokens found!");
+      return null;
+    }
+    const raw = await this.api.getDeviceInfo(
+      this.tokens.accessToken,
+      this.config.deviceKey,
+      this.config.productKey
+    );
+    const result = {};
+    for (const key in import_parsers.deviceStateTypeMap) {
+      const parserType = import_parsers.deviceStateTypeMap[key];
+      const parser = import_parsers.typeParsers[parserType];
+      const value = raw[key];
+      if (value === void 0) {
+        continue;
+      }
+      try {
+        result[key] = parser(value);
+      } catch {
+        this.logger.error("Error during parsing of values returned by the server");
+      }
+    }
+    return result;
   }
 }
 var client_default = SunboosterClient;
