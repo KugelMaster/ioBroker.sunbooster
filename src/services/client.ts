@@ -1,5 +1,7 @@
 import type { DeviceState, Logger, Tokens, TokenStorage } from "../types";
+import { ChargeLevel, OutputLevel } from "../types";
 import { deviceStateTypeMap, typeParsers } from "../utils/parsers";
+import ProtocolBuilder from "../utils/protocol";
 import type ApiService from "./api";
 import type WebSocketService from "./websocket";
 
@@ -29,15 +31,28 @@ class SunboosterClient {
 
     /**
      * Initializes the SunboosterClient.
-     * Loads the tokens from the file and checks if the access token is valid.
+     * Loads the tokens from the file, checks if the access token is valid and opens the websocket.
      *
-     * @returns if loading the tokens was successful.
+     * @returns true if init was successful.
      */
     async init(): Promise<boolean> {
         await this.loadTokens();
         await this.ensureValidAccessToken();
 
-        return this.tokens !== null;
+        if (this.tokens === null) {
+            return false;
+        }
+
+        await this.ws.connect(this.tokens.accessToken);
+
+        return true;
+    }
+
+    /**
+     * Closes all open connections (e.g. websockets)
+     */
+    async close(): Promise<void> {
+        await this.ws.close();
     }
 
     private async loadTokens(): Promise<void> {
@@ -141,6 +156,60 @@ class SunboosterClient {
         }
 
         return result as DeviceState;
+    }
+
+    /**
+     * Sends the battery a charging signal. Note that the actual power charged might differ a little
+     * from what was set, because the battery is dumb and only takes four levels 🤡
+     *
+     * @param watts - The power to charge with in watts.
+     */
+    public async setChargeLevel(watts: number): Promise<void> {
+        let level = ChargeLevel.OFF;
+
+        if (watts < 300) {
+            this.logger.warn("The battery cannot charge with less than 390W");
+        } else if (watts <= 400) {
+            level = ChargeLevel.SLOW;
+        } else if (watts <= 800) {
+            level = ChargeLevel.NORMAL;
+        } else if (watts <= 1600) {
+            level = ChargeLevel.FAST;
+        } else {
+            this.logger.warn("The battery cannot charge with more than 1600W");
+        }
+
+        const res = await this.ws.sendAndReceive(ProtocolBuilder.buildChargeCommand(level));
+
+        this.logger.warn(res);
+    }
+
+    /**
+     * Sends the battery a output signal. The range is between 0W and 800W.
+     *
+     * @param watts - The power to output to the grid.
+     */
+    public async setOutputLevel(watts: number): Promise<void> {
+        if (watts < 0) {
+            this.logger.warn("The battery cannot output negative power");
+            return;
+        }
+
+        if (watts > 800) {
+            this.logger.warn("The battery can output a maximum of 800W. It will do that instead");
+        }
+
+        const level = OutputLevel.find(v => v >= watts) ?? OutputLevel[OutputLevel.length - 1];
+
+        if (level !== watts) {
+            this.logger.info(
+                `The battery can only output in certain levels. Setting output to ${level}W instead of ${watts}W`,
+            );
+        }
+
+        const res = await this.ws.sendAndReceive(ProtocolBuilder.buildOutputCommand(level));
+
+        this.logger.warn(res);
     }
 }
 

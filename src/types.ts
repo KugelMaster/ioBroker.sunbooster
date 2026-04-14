@@ -46,6 +46,8 @@ export const OutputLevel = [0, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550,
 
 /**
  * Charging power profiles.
+ *
+ * OFF = 0W, NORMAL = 620W, FAST = 1600W, SLOW = 390W
  */
 export enum ChargeLevel {
     OFF = 0,

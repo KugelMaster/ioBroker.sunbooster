@@ -4,8 +4,10 @@
 declare global {
     namespace ioBroker {
         interface AdapterConfig {
-            maxRetries: number;
-            retryInterval: number;
+            pollInterval: number;
+
+            wsMaxRetries: number;
+            wsRetryInterval: number;
 
             email: string;
             password: string;

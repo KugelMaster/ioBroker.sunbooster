@@ -33,12 +33,21 @@ __export(websocket_exports, {
 module.exports = __toCommonJS(websocket_exports);
 var import_crypto = __toESM(require("crypto"));
 var import_mqtt = __toESM(require("mqtt"));
-const PRODUCT_KEY = "XXXXXX";
-const DEVICE_KEY = "XXXXXXXXXXXX";
-const BROKER_URL = "wss://iot-south.acceleronix.io:8443/ws/v2";
-const SUB_TOPICS = [`q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`, `q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/ack_`];
-const PUB_TOPIC = `q/1/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`;
 class WebSocketService {
+  /**
+   * @param productKey - The Product Key of the device
+   * @param deviceKey - The Device Key of the device
+   * @param logger - The logger to use for logging messages
+   */
+  constructor(productKey, deviceKey, logger) {
+    this.productKey = productKey;
+    this.deviceKey = deviceKey;
+    this.logger = logger;
+    this.subTopics = [`q/2/d/qd${productKey}${deviceKey}/bus`, `q/2/d/qd${productKey}${deviceKey}/ack_`];
+    this.pubTopic = `q/1/d/qd${productKey}${deviceKey}/bus`;
+  }
+  subTopics;
+  pubTopic;
   client;
   reconnectTimeout;
   requestQueue = [];
@@ -49,27 +58,39 @@ class WebSocketService {
    *
    * @param accessToken - The JWT access token used for authentication
    */
-  connect(accessToken) {
-    const options = {
-      clientId: this.clientId,
-      username: "",
-      password: accessToken,
-      clean: true,
-      connectTimeout: 4e3,
-      reconnectPeriod: 5e3
-    };
-    this.client = import_mqtt.default.connect(BROKER_URL, options);
-    this.client.on("connect", () => this.onConnect());
-    this.client.on("message", (topic, message) => this.handleMessage(topic, message));
-    this.client.on("close", () => this.scheduleReconnect());
-    this.client.on("error", (err) => this.handleError(err));
+  async connect(accessToken) {
+    return new Promise((resolve) => {
+      const options = {
+        clientId: this.clientId,
+        username: "",
+        password: accessToken,
+        clean: true,
+        connectTimeout: 4e3,
+        reconnectPeriod: 5e3
+      };
+      this.client = import_mqtt.default.connect("wss://iot-south.acceleronix.io:8443/ws/v2", options);
+      this.client.on("connect", () => {
+        this.onConnect();
+        resolve();
+      });
+      this.client.on("message", (topic, message) => this.handleMessage(topic, message));
+      this.client.on("close", () => this.scheduleReconnect());
+      this.client.on("error", (err) => this.handleError(err));
+    });
+  }
+  /**
+   * Closes the websocket.
+   */
+  async close() {
+    var _a;
+    await ((_a = this.client) == null ? void 0 : _a.endAsync());
   }
   onConnect() {
     var _a;
-    console.log(`Connected to MQTT broker at ${BROKER_URL} with client ID ${this.clientId}`);
-    (_a = this.client) == null ? void 0 : _a.subscribe(SUB_TOPICS, (err) => {
+    this.logger.info(`Connected to MQTT broker with client ID ${this.clientId}`);
+    (_a = this.client) == null ? void 0 : _a.subscribe(this.subTopics, (err) => {
       if (err) {
-        console.error("Subscription error:", err);
+        this.logger.error(`Subscription error: ${err.message}`);
       } else {
         this.connected = true;
         this.sendNextRequest();
@@ -85,7 +106,7 @@ class WebSocketService {
       return;
     }
     const request = this.requestQueue[0];
-    (_a = this.client) == null ? void 0 : _a.publish(PUB_TOPIC, request.message, (err) => {
+    (_a = this.client) == null ? void 0 : _a.publish(this.pubTopic, request.message, (err) => {
       if (err) {
         clearTimeout(request.timeout);
         request.reject(err);
@@ -96,9 +117,9 @@ class WebSocketService {
   }
   handleMessage(topic, message) {
     if (topic == `q/1/u/${this.clientId}/sys_`) {
-      console.log(JSON.parse(message.toString()).code === 4021 ? "Device offline" : "Unknown message");
+      this.logger.warn(JSON.parse(message.toString()).code === 4021 ? "Device offline" : "Unknown message");
     }
-    if (topic === `q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/ack_`) {
+    if (topic === `q/2/d/qd${this.deviceKey}${this.productKey}/ack_`) {
       if (this.requestQueue.length > 0) {
         const request = this.requestQueue.shift();
         if (request) {
@@ -111,11 +132,11 @@ class WebSocketService {
   }
   handleError(err) {
     this.connected = false;
-    console.error("Connection error:", err);
+    this.logger.error(`Connection error: ${err.message}`);
   }
   scheduleReconnect() {
     this.connected = false;
-    console.log("Connection lost. Reconnecting in 5 seconds...");
+    this.logger.info("Connection lost. Reconnecting in 5 seconds...");
   }
   /**
    * Send a message to the predefined topic. This method queues requests and processes them first-come-first-served.

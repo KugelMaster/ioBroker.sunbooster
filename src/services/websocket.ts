@@ -1,12 +1,6 @@
 import crypto from "crypto";
 import mqtt from "mqtt";
-
-const PRODUCT_KEY = "XXXXXX";
-const DEVICE_KEY = "XXXXXXXXXXXX";
-
-const BROKER_URL = "wss://iot-south.acceleronix.io:8443/ws/v2";
-const SUB_TOPICS = [`q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`, `q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/ack_`];
-const PUB_TOPIC = `q/1/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`;
+import type { Logger } from "../types";
 
 /**
  * Stateful service for communicating with the sunbooster server via the MQTT protocol.
@@ -14,6 +8,9 @@ const PUB_TOPIC = `q/1/d/qd${PRODUCT_KEY}${DEVICE_KEY}/bus`;
  * @see {@link WebSocketService#connect} for the connection of the WebSocket.
  */
 class WebSocketService {
+    private subTopics: string[];
+    private pubTopic: string;
+
     private client?: mqtt.MqttClient;
     private reconnectTimeout?: NodeJS.Timeout;
     private requestQueue: Array<{
@@ -29,34 +26,60 @@ class WebSocketService {
     public connected: boolean = false;
 
     /**
+     * @param productKey - The Product Key of the device
+     * @param deviceKey - The Device Key of the device
+     * @param logger - The logger to use for logging messages
+     */
+    constructor(
+        private productKey: string,
+        private deviceKey: string,
+        private logger: Logger,
+    ) {
+        this.subTopics = [`q/2/d/qd${productKey}${deviceKey}/bus`, `q/2/d/qd${productKey}${deviceKey}/ack_`];
+        this.pubTopic = `q/1/d/qd${productKey}${deviceKey}/bus`;
+    }
+
+    /**
      * Connects to the server via the MQTT protocol.
      *
      * @param accessToken - The JWT access token used for authentication
      */
-    connect(accessToken: string): void {
-        const options = {
-            clientId: this.clientId,
-            username: "",
-            password: accessToken,
-            clean: true,
-            connectTimeout: 4000,
-            reconnectPeriod: 5000,
-        };
+    async connect(accessToken: string): Promise<void> {
+        return new Promise(resolve => {
+            const options = {
+                clientId: this.clientId,
+                username: "",
+                password: accessToken,
+                clean: true,
+                connectTimeout: 4000,
+                reconnectPeriod: 5000,
+            };
 
-        this.client = mqtt.connect(BROKER_URL, options);
+            this.client = mqtt.connect("wss://iot-south.acceleronix.io:8443/ws/v2", options);
 
-        this.client.on("connect", () => this.onConnect());
-        this.client.on("message", (topic, message) => this.handleMessage(topic, message));
-        this.client.on("close", () => this.scheduleReconnect());
-        this.client.on("error", err => this.handleError(err));
+            this.client.on("connect", () => {
+                this.onConnect();
+                resolve();
+            });
+            this.client.on("message", (topic, message) => this.handleMessage(topic, message));
+            this.client.on("close", () => this.scheduleReconnect());
+            this.client.on("error", err => this.handleError(err));
+        });
+    }
+
+    /**
+     * Closes the websocket.
+     */
+    async close(): Promise<void> {
+        await this.client?.endAsync();
     }
 
     private onConnect(): void {
-        console.log(`Connected to MQTT broker at ${BROKER_URL} with client ID ${this.clientId}`);
+        this.logger.info(`Connected to MQTT broker with client ID ${this.clientId}`);
 
-        this.client?.subscribe(SUB_TOPICS, err => {
+        this.client?.subscribe(this.subTopics, err => {
             if (err) {
-                console.error("Subscription error:", err);
+                this.logger.error(`Subscription error: ${err.message}`);
             } else {
                 this.connected = true;
                 this.sendNextRequest();
@@ -74,7 +97,7 @@ class WebSocketService {
         }
 
         const request = this.requestQueue[0];
-        this.client?.publish(PUB_TOPIC, request.message, err => {
+        this.client?.publish(this.pubTopic, request.message, err => {
             if (err) {
                 clearTimeout(request.timeout);
                 request.reject(err);
@@ -85,13 +108,13 @@ class WebSocketService {
     }
 
     private handleMessage(topic: string, message: Buffer): void {
-        //console.debug(`Received message from '${topic}':`, message.toString());
+        //this.logger.debug(`Received message from '${topic}':`, message.toString());
 
         if (topic == `q/1/u/${this.clientId}/sys_`) {
-            console.log(JSON.parse(message.toString()).code === 4021 ? "Device offline" : "Unknown message");
+            this.logger.warn(JSON.parse(message.toString()).code === 4021 ? "Device offline" : "Unknown message");
         }
 
-        if (topic === `q/2/d/qd${PRODUCT_KEY}${DEVICE_KEY}/ack_`) {
+        if (topic === `q/2/d/qd${this.deviceKey}${this.productKey}/ack_`) {
             if (this.requestQueue.length > 0) {
                 const request = this.requestQueue.shift(); // Entferne die erste Anfrage
                 if (request) {
@@ -105,12 +128,12 @@ class WebSocketService {
 
     private handleError(err: Error): void {
         this.connected = false;
-        console.error("Connection error:", err);
+        this.logger.error(`Connection error: ${err.message}`);
     }
 
     private scheduleReconnect(): void {
         this.connected = false;
-        console.log("Connection lost. Reconnecting in 5 seconds...");
+        this.logger.info("Connection lost. Reconnecting in 5 seconds...");
 
         /*
         if (this.reconnectTimeout) {
@@ -125,7 +148,7 @@ class WebSocketService {
      *
      * @param message - The message to send to the topic
      */
-    public async sendAndReceive(message: Buffer): Promise<string> {
+    async sendAndReceive(message: Buffer): Promise<string> {
         return new Promise<string>((resolve, reject) => {
             const id = crypto.randomUUID();
             // Setze einen Timeout, um die Anfrage aus der Warteschlange zu entfernen, falls keine Antwort kommt

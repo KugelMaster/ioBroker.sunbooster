@@ -1,7 +1,9 @@
 "use strict";
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -15,13 +17,23 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var client_exports = {};
 __export(client_exports, {
   default: () => client_default
 });
 module.exports = __toCommonJS(client_exports);
+var import_types = require("../types");
 var import_parsers = require("../utils/parsers");
+var import_protocol = __toESM(require("../utils/protocol"));
 class SunboosterClient {
   /**
    * Creates an instance of SunboosterClient.
@@ -42,14 +54,24 @@ class SunboosterClient {
   tokens = null;
   /**
    * Initializes the SunboosterClient.
-   * Loads the tokens from the file and checks if the access token is valid.
+   * Loads the tokens from the file, checks if the access token is valid and opens the websocket.
    *
-   * @returns if loading the tokens was successful.
+   * @returns true if init was successful.
    */
   async init() {
     await this.loadTokens();
     await this.ensureValidAccessToken();
-    return this.tokens !== null;
+    if (this.tokens === null) {
+      return false;
+    }
+    await this.ws.connect(this.tokens.accessToken);
+    return true;
+  }
+  /**
+   * Closes all open connections (e.g. websockets)
+   */
+  async close() {
+    await this.ws.close();
   }
   async loadTokens() {
     try {
@@ -138,6 +160,51 @@ class SunboosterClient {
       }
     }
     return result;
+  }
+  /**
+   * Sends the battery a charging signal. Note that the actual power charged might differ a little
+   * from what was set, because the battery is dumb and only takes four levels 🤡
+   *
+   * @param watts - The power to charge with in watts.
+   */
+  async setChargeLevel(watts) {
+    let level = import_types.ChargeLevel.OFF;
+    if (watts < 300) {
+      this.logger.warn("The battery cannot charge with less than 390W");
+    } else if (watts <= 400) {
+      level = import_types.ChargeLevel.SLOW;
+    } else if (watts <= 800) {
+      level = import_types.ChargeLevel.NORMAL;
+    } else if (watts <= 1600) {
+      level = import_types.ChargeLevel.FAST;
+    } else {
+      this.logger.warn("The battery cannot charge with more than 1600W");
+    }
+    const res = await this.ws.sendAndReceive(import_protocol.default.buildChargeCommand(level));
+    this.logger.warn(res);
+  }
+  /**
+   * Sends the battery a output signal. The range is between 0W and 800W.
+   *
+   * @param watts - The power to output to the grid.
+   */
+  async setOutputLevel(watts) {
+    var _a;
+    if (watts < 0) {
+      this.logger.warn("The battery cannot output negative power");
+      return;
+    }
+    if (watts > 800) {
+      this.logger.warn("The battery can output a maximum of 800W. It will do that instead");
+    }
+    const level = (_a = import_types.OutputLevel.find((v) => v >= watts)) != null ? _a : import_types.OutputLevel[import_types.OutputLevel.length - 1];
+    if (level !== watts) {
+      this.logger.info(
+        `The battery can only output in certain levels. Setting output to ${level}W instead of ${watts}W`
+      );
+    }
+    const res = await this.ws.sendAndReceive(import_protocol.default.buildOutputCommand(level));
+    this.logger.warn(res);
   }
 }
 var client_default = SunboosterClient;

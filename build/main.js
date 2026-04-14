@@ -50,7 +50,7 @@ class Sunbooster extends utils.Adapter {
     };
     this.client = new import_client.default(
       new import_api.default(),
-      new import_websocket.default(),
+      new import_websocket.default(this.config.productKey, this.config.deviceKey, this.logger),
       new import_token_storage.default(this),
       this.config,
       this.logger
@@ -63,25 +63,30 @@ class Sunbooster extends utils.Adapter {
     for (const [id, obj] of Object.entries(import_states.stateDefinitions)) {
       await this.setObjectNotExistsAsync(id, obj);
     }
-    this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), 6e4);
+    this.subscribeStates("TOTAL_INPUT_POWER");
+    this.subscribeStates("TOTAL_OUTPUT_POWER");
+    this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), this.config.pollInterval * 1e3);
     await this.pollDeviceInfos();
     this.log.info("Sunbooster adapter is ready.");
   }
   onStateChange(id, state) {
-    if (state) {
-      this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-      if (state.ack === false) {
-        this.log.info(`User command received for ${id}: ${state.val}`);
-      }
-    } else {
-      this.log.info(`state ${id} deleted`);
+    var _a, _b;
+    if (!state || state.ack) {
+      return;
+    }
+    const key = id.replace(`${this.namespace}.`, "");
+    this.log.debug(`User command received for ${key}: ${state.val}`);
+    if (key === "TOTAL_INPUT_POWER") {
+      (_a = this.client) == null ? void 0 : _a.setChargeLevel(state.val).catch(this.log.error);
+    } else if (key === "TOTAL_OUTPUT_POWER") {
+      (_b = this.client) == null ? void 0 : _b.setOutputLevel(state.val).catch(this.log.error);
     }
   }
-  onUnload(callback) {
+  async onUnload(callback) {
+    var _a;
     try {
-      if (this.pollInterval) {
-        this.clearInterval(this.pollInterval);
-      }
+      this.clearInterval(this.pollInterval);
+      await ((_a = this.client) == null ? void 0 : _a.close());
       callback();
     } catch (error) {
       this.log.error(`Error during unloading: ${error.message}`);
@@ -103,7 +108,12 @@ class Sunbooster extends utils.Adapter {
       return;
     }
     for (const [key, value] of Object.entries(data)) {
-      await this.setState(key, { val: value, ack: true });
+      try {
+        await this.setState(key, { val: value, ack: true });
+      } catch {
+        await this.setObjectNotExists(key, import_states.stateDefinitions[key]);
+        await this.setState(key, { val: value, ack: true });
+      }
     }
   }
 }

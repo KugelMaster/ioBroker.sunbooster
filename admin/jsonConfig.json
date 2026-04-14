@@ -43,7 +43,15 @@
             "type": "panel",
             "label": "Options",
             "items": {
-                "maxRetries": {
+                "pollInterval": {
+                    "type": "number",
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 6,
+                    "label": "Poll Interval",
+                    "help": "The poll rate in seconds for requesting device data"
+                },
+                "wsMaxRetries": {
                     "type": "number",
                     "sm": 12,
                     "md": 6,
@@ -51,7 +59,7 @@
                     "label": "Max Retries",
                     "help": "How often the WebSocket tries to reconnect if an error occured"
                 },
-                "retryInterval": {
+                "wsRetryInterval": {
                     "type": "number",
                     "sm": 12,
                     "md": 6,

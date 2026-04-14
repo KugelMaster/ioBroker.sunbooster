@@ -81,8 +81,9 @@
         ]
     },
     "native": {
-        "maxRetries": 5,
-        "retryInterval": 5000,
+        "pollInterval": 30,
+        "wsMaxRetries": 5,
+        "wsRetryInterval": 5000,
         "email": "",
         "password": "",
         "deviceKey": "",

@@ -33,7 +33,7 @@ class Sunbooster extends utils.Adapter {
 
         this.client = new SunboosterClient(
             new ApiService(),
-            new WebSocketService(),
+            new WebSocketService(this.config.productKey, this.config.deviceKey, this.logger),
             new IOBrokerTokenStorage(this),
             this.config,
             this.logger,
@@ -50,34 +50,35 @@ class Sunbooster extends utils.Adapter {
             await this.setObjectNotExistsAsync(id, obj);
         }
 
-        this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), 60_000);
+        this.subscribeStates("TOTAL_INPUT_POWER");
+        this.subscribeStates("TOTAL_OUTPUT_POWER");
+
+        this.pollInterval = this.setInterval(async () => await this.pollDeviceInfos(), this.config.pollInterval * 1000);
         await this.pollDeviceInfos();
 
         this.log.info("Sunbooster adapter is ready.");
     }
 
     private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
-        if (state) {
-            this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+        if (!state || state.ack) {
+            return;
+        }
 
-            if (state.ack === false) {
-                // This is a command from the user (e.g., from the UI or other adapter)
-                // and should be processed by the adapter
-                this.log.info(`User command received for ${id}: ${state.val}`);
+        const key = id.replace(`${this.namespace}.`, "");
 
-                // TODO: Add your control logic here
-            }
-        } else {
-            // The object was deleted or the state value has expired
-            this.log.info(`state ${id} deleted`);
+        this.log.debug(`User command received for ${key}: ${state.val}`);
+
+        if (key === "TOTAL_INPUT_POWER") {
+            this.client?.setChargeLevel(state.val as number).catch(this.log.error);
+        } else if (key === "TOTAL_OUTPUT_POWER") {
+            this.client?.setOutputLevel(state.val as number).catch(this.log.error);
         }
     }
 
-    private onUnload(callback: () => void): void {
+    private async onUnload(callback: () => void): Promise<void> {
         try {
-            if (this.pollInterval) {
-                this.clearInterval(this.pollInterval);
-            }
+            this.clearInterval(this.pollInterval);
+            await this.client?.close();
             callback();
         } catch (error) {
             this.log.error(`Error during unloading: ${(error as Error).message}`);
@@ -101,7 +102,12 @@ class Sunbooster extends utils.Adapter {
         }
 
         for (const [key, value] of Object.entries(data)) {
-            await this.setState(key, { val: value, ack: true });
+            try {
+                await this.setState(key, { val: value, ack: true });
+            } catch {
+                await this.setObjectNotExists(key, stateDefinitions[key]);
+                await this.setState(key, { val: value, ack: true });
+            }
         }
     }
 }
